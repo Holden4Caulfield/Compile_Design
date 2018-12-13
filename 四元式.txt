@@ -1,0 +1,21 @@
+赋值
+(= a _ b)
+算术
+(op a b c)
+判断
+(if a _ _)
+(el _ _ _)
+(ie _ _ _)
+循环
+(wh _ _ _)
+(do a _ _ )
+(we, _ _ _)
+
+Qt 四元式
+Obj 目标
+RDL 寄存器状态
+SEM 语义栈
+新加的
+xinde
+youyige
+gittt
