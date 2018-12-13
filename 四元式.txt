@@ -19,3 +19,5 @@ SEM 语义栈
 xinde
 youyige
 gittt
+laji
+laji
