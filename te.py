@@ -1,4 +1,2 @@
-from selenium import webdriver
-
-brow=webdriver.Chrome()
-brow.get('www.baidu.com')
+a=[5,6,8,1,0]
+print(sorted(a))
