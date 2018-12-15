@@ -1,21 +1,42 @@
 class Target():
 
-    j_w=['_','+','*','/','=']
+    j_w=['_','-','+','*','/','=','>','<','>=','<=','==','ie','el','if','wh','do','we']
     id_list=[]
     lan_block=[]
     Qt_lis=[
-        ['=','3','_','a'],
+        """ ['=','3','_','a'],
         ['=','2','_','b'],
         ['+','a','b','t1'],
         ['*','a','t1','t3'],
         ['/','t3','t1','x'],
-        ['=','t1','_','i']
+        ['=','t1','_','i'] """
     ]
+    if_stack=[]
+    if_c=0               #计数
+    while_c=0
+    while_stack=[]
+    block_name=''            #给每个语句块定义一个标识符
     def __init__(self):
+        self.open_file()
         self.get_list()
         self.prepare()
         self.parse_main()
         pass
+
+    #打开四元式文件,读取四元式存入Qt_lis
+    def open_file(self):
+        lis=[]
+        with open('D:/Compile_Design/esay.txt') as f:
+            for line in f:
+                lis.append(line.split(' '))
+            f.close()
+        for item in lis:
+            if(len(item)==1):
+                continue
+            else:
+                item[3]=item[3][0:-1]
+        self.Qt_lis=lis        
+
 
     def prepare(self):
         print('DSEG     SEGMENT')
@@ -26,10 +47,16 @@ class Target():
         print('    ASSUME CS:CSEG,DS:DSEG')    
 
     #解析语句块
-    def parse_block(self):
+    def parse_block(self,lis_block):
         out_put=[]
-        for line in self.Qt_lis:
-            if line[0] in ['+','-']:
+        for line in lis_block:
+            if self.block_name !='':
+                print(self.block_name+':')
+                self.block_name=''
+            if(len(line)==1):
+                continue
+            #简单运算
+            elif line[0] in ['+','-']:
                 if line[0]=='+':
                     out_put.append('        MOV   AX,'+str(line[1]))
                     out_put.append('        ADD   AX,'+str(line[2]))
@@ -38,7 +65,7 @@ class Target():
                     out_put.append('        MOV   AX,'+str(line[1]))
                     out_put.append('        SUB   AX,'+str(line[2]))
                     out_put.append('        MOV   '+str(line[3])+','+'AX')
-            if line[0] in ['*','/']:
+            elif line[0] in ['*','/']:
                 if line[0] == '*':
                     out_put.append('        MOV   AX,'+str(line[1]))
                     out_put.append('        MUL   '+str(line[2]))
@@ -47,10 +74,46 @@ class Target():
                     out_put.append('        MOV   AX,'+str(line[1]))
                     out_put.append('        DIV   '+str(line[2]))
                     out_put.append('        MOV   '+str(line[3]).upper()+','+'AX')
-            if line[0]=='=':
+            elif line[0]=='=':
 
                 out_put.append('        MOV   '+'DX'+','+str(line[1]))
-                out_put.append('        MOV   '+str(line[3])+','+'DX')    
+                out_put.append('        MOV   '+str(line[3])+','+'DX')   
+            #转移指令 JMP
+            elif line[0] in ['>=','<=','==','>','<']:
+                print(line)
+                pass
+                
+            #包含转移的指令    
+            if line[0] in ['if','el','ie','do','we','wh']:
+                if line[0]=='wh':
+                    self.while_c+=1
+                    name='while'+str(self.while_c)
+                    self.while_stack.append(name)
+                    self.block_name=name
+                #do,we 要寻找与之对应的whil，从while栈中栈顶得到    
+                if line[0] =='do':
+                    name='do'+str(self.while_c)
+                    self.block_name=name
+                if line[0] == 'we':
+                     name='we'+str(self.while_c)
+                     self.while_stack.pop()
+                     self.block_name=name
+                if line[0]=='if':
+                    self.if_c+=1
+                    name='if'+str(self.if_c)
+                    self.if_stack.append(name)
+                    self.block_name=name
+                #do,we 要寻找与之对应的whil，从while栈中栈顶得到    
+                if line[0] =='el':
+                    name='else'+str(self.if_c)
+                    self.block_name=name
+                if line[0] == 'ie':
+                     name='ie'+str(self.if_c)
+                     self.if_stack.pop()
+                     self.block_name=name
+                        
+
+               
 
 
         for i in out_put:
@@ -62,6 +125,8 @@ class Target():
         #传入四元式,逐条分析
         for items in self.Qt_lis:
             for item in items:
+                if item =='\n':
+                    continue
                 id_dic={}
                 #判断是标识符
                 if(self.jud_isid(item)):
@@ -85,26 +150,37 @@ class Target():
 
     #分析语句块
     def parse_main(self):
-        """ kw=['if','ie','el','wh','do','we']
-        block=[]
-        count=0
-        for lis in Qt_lis:
-            block.append(lis)
-            if lis[0] in kw:
-                count+=1
-                self.lan_block.append(block)
-                block.clear() """
+
         #基本块 
         print('START: MOV  AX,DSEG')
         print('     MOV  DS,AX')       
-        self.parse_block()
+        self.cut_block()
         print('CSEG     ENDS')
         print('     END  START')       
-                
-                
-                
-
         pass
+    
+    #划分基本块
+    def cut_block(self):
+        """ for item in self.Qt_lis:
+            print(item)
+            print('a') """
+        lis_block=[]
+        for item in self.Qt_lis:
+            if len(item) != 1:
+                lis_block.append(item)
+            else:
+                
+                #lis_block.append('\n')
+                self.parse_block(lis_block)
+                lis_block.clear()
+        if len(lis_block)!=0:
+            
+            lis_block.append('end')
+            self.parse_block(lis_block)
+            lis_block.clear()
+                    
+
+
 
 
 if __name__ =='__main__':
