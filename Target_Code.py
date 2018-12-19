@@ -1,66 +1,70 @@
-class Target():
+from newdag import Optimizer
+from Digui import MiddleCode
+from Digui import SymbolItem
 
+class Target_fun():
     j_w=['_','-','+','*','/','=','>','<','>=','<=','==','ie','el','if','wh','do','we']
-    id_list=[]
-    lan_block=[]
-    Qt_lis=[
-        """ ['=','3','_','a'],
-        ['=','2','_','b'],
-        ['+','a','b','t1'],
-        ['*','a','t1','t3'],
-        ['/','t3','t1','x'],
-        ['=','t1','_','i'] """
-    ]
-    if_stack=[]
-    if_c=0               #计数
-    while_c=0
-    while_stack=[]
-    jm_status={}
-    out_put=[]
-    rea_dic={}            #构建字典，存储转移逻辑
-    block_name=''            #给每个语句块定义一个标识符
-    def __init__(self):
-        self.open_file()
-        self.get_list()
+    def __init__(self,lis,name):
+        self.dic_clear()
+        self.Qt_lis=lis
+        self.fname=name
+        #self.get_list()
+        #print(self.id_list)
         self.prepare()
         self.parse_main()
         print(self.rea_dic)
+        print(self.off_dic)
+        pass     
 
-        pass
+    def dic_clear(self):
+        self.off_add=int(0)         #偏移地址
+        self.off_dic=dict()         #偏移量建立键值对关系
+        self.id_list=list()         #标识符，存偏移地址
+        self.lan_block=list()
+        self.Qt_lis=list()
+        self.if_stack=list()
+        self.if_c=int(0)               #计数
+        self.while_c=int(0)
+        self.while_stack=list()
+        self.jm_status=dict()
+        self.out_put=list()
+        self.rea_dic=dict()            #构建字典，存储转移逻辑
+        self.block_name=str('')            #给每个语句块定义一个标识符
+        self.fname=str('')
 
-    #打开四元式文件,读取四元式存入Qt_lis
-    def open_file(self):
-        lis=[]
-        with open('D:/Compile_Design/esay.txt') as f:
-            for line in f:
-                lis.append(line.split(' '))
-            f.close()
-        for item in lis:
-            if(len(item)==1):
-                continue
-            else:
-                item[3]=item[3][0:-1]
-        self.Qt_lis=lis        
+
+
+    #控制主DI指针移动
+    def control(self,op,num):
+        print('zhixing'+'  '+op)
+        if op == '+':
+            for item in self.off_dic.keys():
+                self.off_dic[item]=self.off_dic[item]+num
+        if op == '-':
+            for item in self.off_dic.keys():
+                self.off_dic[item]=self.off_dic[item]-num
+       
+
+
 
 
     def prepare(self):
-        print('DSEG     SEGMENT')
-        for item in self.id_list:
-            print(item['name']+'     '+'DW    '+'?')
-        print('DSEG     ENDS')
-        print('CSEG     SEGMENT')
-        print('    ASSUME CS:CSEG,DS:DSEG')    
+        print('DSEG'+self.fname.upper(),end='')
+        print('     SEGMENT')
+        print('DSEG'+self.fname.upper(),end='')    
+        print('     ENDS')
+        print('CSEG'+self.fname.upper(),end='')
+        print('     SEGMENT')
+        print('    ASSUME CS:CSEG{},DS:DSEG{}'.format(self.fname.upper(),self.fname.upper()))    
 
     #解析语句块
     def parse_block(self,lis_block):
         
         load_name=''
         out_put_block=[]
-        while_li=[1]
+
         logic_op='none'
         for line in lis_block:
-            """ if 'else' in load_name:
-                out_put_block.append(' jmp '+self.rea_dic[self.rea_dic[self.rea_dic[load_name]]][0]) """
             if self.block_name !='':
                 load_name=self.block_name
                 if 'ie' in load_name:
@@ -68,55 +72,59 @@ class Target():
                     if self.jm_status[self.rea_dic[load_name]] != 'done':
                         self.jm_status[self.rea_dic[load_name]] = 'done'
                         print(self.rea_dic[self.rea_dic[load_name]][-1]+':')
-
-
-                        
+                      
                     pass
                 print(self.block_name+':')
                 if 'we' in load_name:
                     #print(self.jm_status)
+                    #while end 要转移到while开始位置
                     if self.jm_status[self.rea_dic[load_name]]=='begin':
                         out_put_block.append('      JMP  '+self.rea_dic[load_name])
+                        #out_put_block.append('6666')
                         self.jm_status[self.rea_dic[load_name]]='done'
-                    print(self.jm_status)
                 
-
-
                 self.block_name=''
-            if(len(line)==1):
+            if line is None:
                 continue
+            #简单运算,结果保存，存入[DI]
+            if line.opt in ['-','+','*','/','=']:
+                """ if line.opt in ['+','-']:
+                    if line.opt=='+':
+                        out_put_block.append('        MOV   AX,'+str(line[1]))
+                        out_put_block.append('        ADD   AX,'+str(line[2]))
+                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
+                    else:
+                        out_put_block.append('        MOV   AX,'+str(line[1]))
+                        out_put_block.append('        SUB   AX,'+str(line[2]))
+                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
+                elif line.opt in ['*','/']:
+                    if line.opt == '*':
+                        out_put_block.append('        MOV   AX,'+str(line[1]))
+                        out_put_block.append('        MUL   '+str(line[2]))
+                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
+                    else:
+                        out_put_block.append('        MOV   AX,'+str(line[1]))
+                        out_put_block.append('        DIV   '+str(line[2]))
+                        out_put_block.append('        MOV   '+str(line[3])+','+'AX') """
+                if line.opt=='=':
+                    #x=a或者x=2
+                    #在表中
+                    off_set=0
+                    if line.res.name in self.off_dic:
+                        off_set=self.off_dic[line.res.name]
+                    else:
+                        self.off_dic[line.res.name]=off_set    
+                    if isinstance(line.item1,SymbolItem):
+                        out_put_block.append('         MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']')
+                        out_put_block.append('          MOV   [DI],DX')
+                    else:
+                        out_put_block.append('      MOV    DX,'+str(line.item1))
+                        out_put_block.append('          MOV   [DI],DX')
+                    self.control('+',2)    
 
-                    
-            #简单运算
-            elif line[0] in ['+','-']:
-                if line[0]=='+':
-                    out_put_block.append('        MOV   AX,'+str(line[1]))
-                    out_put_block.append('        ADD   AX,'+str(line[2]))
-                    out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-                else:
-                    out_put_block.append('        MOV   AX,'+str(line[1]))
-                    out_put_block.append('        SUB   AX,'+str(line[2]))
-                    out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-            elif line[0] in ['*','/']:
-                if line[0] == '*':
-                    out_put_block.append('        MOV   AX,'+str(line[1]))
-                    out_put_block.append('        MUL   '+str(line[2]))
-                    out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-                else:
-                    out_put_block.append('        MOV   AX,'+str(line[1]))
-                    out_put_block.append('        DIV   '+str(line[2]))
-                    out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-            elif line[0]=='=':
-
-                out_put_block.append('        MOV   '+'DX'+','+str(line[1]))
-                out_put_block.append('        MOV   '+str(line[3])+','+'DX')   
             #转移指令 JMP
-            elif line[0] in ['>=','<=','==','>','<']:
-                logic_op=line[0]
-                out_put_block.append('        MOV     AX'+','+str(line[1]))
-                out_put_block.append('        SUB     AX'+','+str(line[2]))
-                out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-                out_put_block.append('        CMP     AX,0')
+            if line.opt in ['>=','<=','==','>','<']:
+                logic_op=line.opt
                 if 'while' in load_name:
                     '''
                     '''
@@ -136,22 +144,19 @@ class Target():
 
                     if logic_op =='==':
                         out_put_block.append('      JNE  '+self.rea_dic[load_name])      
-                    #out_put_block.append('        JMP '+self.rea_dic[load_name])
                     pass
                 if 'do' in load_name:
-                   # out_put_block.append('        JMP '+self.rea_dic[load_name])
                    pass
 
                 if 'we' in load_name:
                     '''
                     '''
-                    print(self.rea_dic[load_name])
-                    #out_put_block.append('        JMP '+self.rea_dic[load_name])
+                    #print(self.rea_dic[load_name])
                     pass
                 
             #包含转移的指令,语句块的出口 
-            if line[0] in ['if','el','ie','do','we','wh']:
-                if line[0]=='wh':
+            if line.opt in ['if','el','ie','do','we','wh']:
+                if line.opt=='wh':
                     self.while_c+=1
                     name='while'+str(self.while_c)
                     self.while_stack.append(name)
@@ -161,15 +166,15 @@ class Target():
                     self.rea_dic['we'+str(self.while_c)]=name
                     self.block_name=name
                 #do,we 要寻找与之对应的whil，从while栈中栈顶得到    
-                if line[0] =='do':
+                if line.opt =='do':
                     name='do'+self.while_stack[-1][5:]
                     self.block_name=name
-                if line[0] == 'we':
+                if line.opt == 'we':
                     name='we'+self.while_stack[-1][5:]
                     pop_name=self.while_stack.pop()
                      
                     self.block_name=name
-                if line[0]=='if':
+                if line.opt=='if':
                     self.if_c+=1
                     name='if'+str(self.if_c)
                     self.if_stack.append(name)
@@ -197,27 +202,30 @@ class Target():
                     if logic_op =='==':
                         out_put_block.append('       JNE  '+self.rea_dic[name][-1])
 
-                       
-
-                       
-
-                        
+     
                 #do,we 要寻找与之对应的whil，从while栈中栈顶得到    
-                if line[0] =='el':
+                if line.opt =='el':
                     name='else'+self.if_stack[-1][2:]
                     if_status='if'+name[4:]
                     self.jm_status[if_status]='done'
                     self.block_name=name
                     out_put_block.append('          JMP '+self.rea_dic[self.rea_dic[self.rea_dic[name]]][0])
-                if line[0] == 'ie':
+                if line.opt == 'ie':
+                    
                     name='ie'+self.if_stack[-1][2:]
-                    pop_name=self.if_stack.pop()                  
+                    if len(self.if_stack)==1:
+                        self.if_stack.clear()
+                    else:
+                        pop_name=self.if_stack.pop()                
                     self.block_name=name
+
+            if line.opt == 'ret':
+                out_put_block.append('  ret')        
 
         for i in out_put_block:
             print(i)
 
-        self.out_put+=out_put_block   
+        #self.out_put+=out_put_block   
         pass
 
 
@@ -232,12 +240,13 @@ class Target():
                 id_dic={}
                 #判断是标识符
                 if(self.jud_isid(item)):
-                    id_dic['name']=item
+                    id_dic[item]='none'
+                    
                     if id_dic in self.id_list:
                         continue
                     self.id_list.append(id_dic)
 
-        print(self.id_list)            
+       # print(self.id_list)            
         pass
 
     def jud_isid(self,word):
@@ -254,11 +263,11 @@ class Target():
     def parse_main(self):
 
         #基本块 
-        print('START: MOV  AX,DSEG')
-        print('     MOV  DS,AX')       
+        
+        print('{}      PROC    FAR'.format(self.fname.upper()))
+         
         self.cut_block()
-        print('CSEG     ENDS')
-        print('     END  START')       
+        print('{}       ENDP'.format(self.fname.upper()))        
         pass
     
     #划分基本块
@@ -268,23 +277,71 @@ class Target():
             print('a') """
         lis_block=[]
         for item in self.Qt_lis:
-            if len(item) != 1:
+            if isinstance(item,MiddleCode):
                 lis_block.append(item)
             else:
-                
-                #lis_block.append('\n')
                 self.parse_block(lis_block)
+                pass
                 lis_block.clear()
-        if len(lis_block)!=0:
-            
-            lis_block.append('end')
+
+        if len(lis_block)!=0:           
+            lis_block.append('')
             self.parse_block(lis_block)
             lis_block.clear()
+
                     
 
 
 
 
-if __name__ =='__main__':
-    tr=Target()
-    print('dong')
+class Target_cult():
+    
+    #总 四元式块
+    Qt_lis=[]
+
+    def __init__(self):
+        self.open_file()
+        
+        self.clut()
+
+    def open_file(self):
+        lis=[]
+        o=Optimizer()
+        lis=o.get_result()
+        self.Qt_lis=lis
+    
+    def clut(self):
+        fun_name=''
+        #每一块函数的四元式语句块
+        fun_lis=[]
+        tag=0
+        for line in self.Qt_lis:
+            #遇到函数dingyi
+            
+            try:
+                if line.opt == 'pro':
+                    fun_name=line.item1.name
+                    tag=1
+                    continue
+                if line.opt == 'pe':
+                    parse=Target_fun(fun_lis[1:],fun_name)
+                    #print(fun_lis)
+                    fun_lis.clear()
+                    fun_name=''
+                    tag=0
+                    continue
+            except:
+                pass        
+            if tag == 1:
+                fun_lis.append(line)
+
+
+        print('hello,evevy')
+            
+
+if __name__ == '__main__':
+
+
+    tr=Target_cult()
+    print('jel')
+    print(('he'))
