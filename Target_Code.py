@@ -1,6 +1,8 @@
 from newdag import Optimizer
 from Digui import MiddleCode
 from Digui import SymbolItem
+from Digui import MiddleCode
+from Digui import TempVar
 
 class Target_fun():
     j_w=['_','-','+','*','/','=','>','<','>=','<=','==','ie','el','if','wh','do','we']
@@ -36,7 +38,6 @@ class Target_fun():
 
     #控制主DI指针移动
     def control(self,op,num):
-        print('zhixing'+'  '+op)
         if op == '+':
             for item in self.off_dic.keys():
                 self.off_dic[item]=self.off_dic[item]+num
@@ -88,39 +89,42 @@ class Target_fun():
                 continue
             #简单运算,结果保存，存入[DI]
             if line.opt in ['-','+','*','/','=']:
-                """ if line.opt in ['+','-']:
-                    if line.opt=='+':
-                        out_put_block.append('        MOV   AX,'+str(line[1]))
-                        out_put_block.append('        ADD   AX,'+str(line[2]))
-                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
+                #运算单元肯定已知，不是标识就是常数
+                if line.opt in ['-','+','*','/']:
+                    if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
+                        out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
                     else:
-                        out_put_block.append('        MOV   AX,'+str(line[1]))
-                        out_put_block.append('        SUB   AX,'+str(line[2]))
-                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
-                elif line.opt in ['*','/']:
-                    if line.opt == '*':
-                        out_put_block.append('        MOV   AX,'+str(line[1]))
-                        out_put_block.append('        MUL   '+str(line[2]))
-                        out_put_block.append('        MOV   '+str(line[3])+','+'AX')
+                        out_put_block.append('          MOV     AX,'+str(line.item1))    
+                    if isinstance(line.item2,SymbolItem)or isinstance(line.item2,TempVar):
+                        out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+str(line.item2.name))
                     else:
-                        out_put_block.append('        MOV   AX,'+str(line[1]))
-                        out_put_block.append('        DIV   '+str(line[2]))
-                        out_put_block.append('        MOV   '+str(line[3])+','+'AX') """
+                        out_put_block.append('          MOV     BX,'+str(line.item2))    
+                    if line.opt in ['+','-']:
+                        if line.opt=='+':
+                            out_put_block.append('          ADD   AX,BX')
+                        else:
+                            out_put_block.append('          SUB   AX,BX')
+                    elif line.opt in ['*','/']:
+                        if line.opt == '*':
+                            out_put_block.append('          MUL   BX')
+                        else:
+                            out_put_block.append('          DIV   BX')
+                #要操作的res的偏移地址            
+                off_set=0
+                if line.res.name in self.off_dic:
+                    off_set=self.off_dic[line.res.name]
+                else:
+                    self.off_dic[line.res.name]=off_set
                 if line.opt=='=':
                     #x=a或者x=2
-                    #在表中
-                    off_set=0
-                    if line.res.name in self.off_dic:
-                        off_set=self.off_dic[line.res.name]
+                    #在表中  
+                    if isinstance(line.item1,SymbolItem)or isinstance(line.item1,TempVar):
+                        out_put_block.append('          MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
                     else:
-                        self.off_dic[line.res.name]=off_set    
-                    if isinstance(line.item1,SymbolItem):
-                        out_put_block.append('         MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']')
-                        out_put_block.append('          MOV   [DI],DX')
-                    else:
-                        out_put_block.append('      MOV    DX,'+str(line.item1))
-                        out_put_block.append('          MOV   [DI],DX')
-                    self.control('+',2)    
+                        out_put_block.append('          MOV    DX,'+str(line.item1))
+                out_put_block.append('          MOV     [DI],DX'+str(line.res.name))                              
+                out_put_block.append('          ADD    DI,2')        
+                self.control('+',2)    
 
             #转移指令 JMP
             if line.opt in ['>=','<=','==','>','<']:
