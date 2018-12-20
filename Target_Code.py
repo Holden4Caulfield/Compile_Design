@@ -6,10 +6,10 @@ from Digui import TempVar
 
 class Target_fun():
     j_w=['_','-','+','*','/','=','>','<','>=','<=','==','ie','el','if','wh','do','we']
-    def __init__(self,lis,name):
+    def __init__(self,lis,f_dic):
         self.dic_clear()
         self.Qt_lis=lis
-        self.fname=name
+        self.f_dict=f_dic
         #self.get_list()
         #print(self.id_list)
         self.prepare()
@@ -20,6 +20,7 @@ class Target_fun():
 
     def dic_clear(self):
         self.Temp_count=int(0)
+        self.f_dict=dict()
         self.off_add=int(0)         #偏移地址
         self.off_dic=dict()         #偏移量建立键值对关系
         self.id_list=list()         #标识符，存偏移地址
@@ -61,13 +62,7 @@ class Target_fun():
 
 
     def prepare(self):
-        print('DSEG'+self.fname.upper(),end='')
-        print('     SEGMENT')
-        print('DSEG'+self.fname.upper(),end='')    
-        print('     ENDS')
-        print('CSEG'+self.fname.upper(),end='')
-        print('     SEGMENT')
-        print('    ASSUME CS:CSEG{},DS:DSEG{}'.format(self.fname.upper(),self.fname.upper()))    
+        self.fname=self.f_dict['name']   
 
     #解析语句块
     def parse_block(self,lis_block):
@@ -112,11 +107,11 @@ class Target_fun():
                 #运算单元肯定已知，不是标识就是常数,结果肯定是临时变量，不需要存
                 if line.opt in ['-','+','*','/']:
                     if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
-                        out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
+                        out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+';'+str(line.item1.name))
                     else:
                         out_put_block.append('          MOV     AX,'+str(line.item1))    
                     if isinstance(line.item2,SymbolItem)or isinstance(line.item2,TempVar):
-                        out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+str(line.item2.name))
+                        out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+';'+str(line.item2.name))
                     else:
                         out_put_block.append('          MOV     BX,'+str(line.item2))    
                     if line.opt in ['+','-']:
@@ -145,10 +140,10 @@ class Target_fun():
                     #x=a或者x=2
                     #在表中  
                     if isinstance(line.item1,SymbolItem)or isinstance(line.item1,TempVar):
-                        out_put_block.append('          MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
+                        out_put_block.append('          MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']'+';'+str(line.item1.name))
                     else:
                         out_put_block.append('          MOV    DX,'+str(line.item1))
-                out_put_block.append('          MOV     [DI],DX'+str(line.res.name))
+                out_put_block.append('          MOV     [DI],DX'+';'+str(line.res.name))
                 if tag == 0:         
                     out_put_block.append('          ADD    DI,2') 
                     tag=1       
@@ -158,11 +153,11 @@ class Target_fun():
             if line.opt in ['>=','<=','==','>','<']:
                 logic_op=line.opt
                 if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
-                    out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
+                    out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+';'+str(line.item1.name))
                 else:
                     out_put_block.append('          MOV     AX,'+str(line.item1))    
                 if isinstance(line.item2,SymbolItem)or isinstance(line.item2,TempVar):
-                    out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+str(line.item2.name))
+                    out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+';'+str(line.item2.name))
                 else:
                     out_put_block.append('          MOV     BX,'+str(line.item2))
 
@@ -271,42 +266,22 @@ class Target_fun():
                     self.block_name=name
 
             if line.opt == 'ret':
+                if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
+                    #out_put_block.append('          MOV     DX,[DI-'+str(self.off_dic[line.item1.name]+'];'+line.item1.name))
+                    out_put_block.append('          MOV  CX,[DI-'+str(self.off_dic[line.item1.name])+']')
+                else:
+                    out_put_block.append('          MOV     CX,'+str(line.item1))
+                out_put_block.append('          SUB     DI;'+str(self.Temp_count))
+                self.control('-',self.Temp_count)
+                self.Temp_count=0        
                 out_put_block.append('  ret')        
 
-        for i in out_put_block:
+        self.out_put=out_put_block
+        for i in self.out_put:
             print(i)
 
         #self.out_put+=out_put_block   
         pass
-
-
-
-    #划分基本块,获得变量表
-    def get_list(self):
-        #传入四元式,逐条分析
-        for items in self.Qt_lis:
-            for item in items:
-                if item =='\n':
-                    continue
-                id_dic={}
-                #判断是标识符
-                if(self.jud_isid(item)):
-                    id_dic[item]='none'
-                    
-                    if id_dic in self.id_list:
-                        continue
-                    self.id_list.append(id_dic)
-
-       # print(self.id_list)            
-        pass
-
-    def jud_isid(self,word):
-        if word in self.j_w:
-            return 0
-        elif word.isdigit():
-            return 0    
-        else:
-            return 1    
 
 
 
@@ -315,11 +290,33 @@ class Target_fun():
 
         #基本块 
         
-        print('{}      PROC    FAR'.format(self.fname.upper()))
-         
+        print('{}      PROC    NEAR'.format(self.fname.upper()))
+        if len(self.f_dict['param'])!=0:
+            self.param_perpare()
         self.cut_block()
         print('{}       ENDP'.format(self.fname.upper()))        
         pass
+
+    #函数带参数，要准备
+    def param_perpare(self):
+        out_put_lis=[]
+        out_put_lis.append('          PUSH  BP')
+        out_put_lis.append('          MOV   BP,SP')
+        #将栈中参数保存
+        par_lis=self.f_dict['param']
+        base=2
+        len_par=len(par_lis)
+        for item in par_lis:
+            self.off_dic[item]=0
+            out_put_lis.append('          MOV   DX,[BP+'+str(base+2*len_par)+']')
+            out_put_lis.append('          MOV   [DI],DX')
+            out_put_lis.append('          ADD   DI,2')
+            self.control('+',2)
+            len_par-=1
+        for i in out_put_lis:
+            print(i)    
+        pass
+
     
     #划分基本块
     def cut_block(self):
@@ -363,6 +360,8 @@ class Target_cult():
     
     def clut(self):
         fun_name=''
+        fun_dic=dict()
+
         #每一块函数的四元式语句块
         fun_lis=[]
         tag=0
@@ -371,14 +370,19 @@ class Target_cult():
             
             try:
                 if line.opt == 'pro':
-                    fun_name=line.item1.name
+                    fun_dic['name']=line.item1.name
+                    fun_dic['param']=list()
+                    for item in line.item1.addr.paramList:
+                        fun_dic['param'].append(item.name)
+                    print(fun_dic)
                     tag=1
                     continue
                 if line.opt == 'pe':
-                    parse=Target_fun(fun_lis[1:],fun_name)
-                    #print(fun_lis)
+                    fun_lis.append('')
+                    parse=Target_fun(fun_lis[1:],fun_dic)
+                    print('1ci')
                     fun_lis.clear()
-                    fun_name=''
+                    fun_dic.clear()
                     tag=0
                     continue
             except:
