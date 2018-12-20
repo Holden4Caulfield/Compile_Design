@@ -43,10 +43,14 @@ class Target_fun():
             for item in self.off_dic.keys():
                 self.off_dic[item]=self.off_dic[item]+num
         if op == '-':
+            del_lis=[]
             for item in self.off_dic.keys():
                 self.off_dic[item]=self.off_dic[item]-num
-                """ if self.off_dic[item] <= 0:
-                    del self.off_dic[item] """
+                if self.off_dic[item] <= 0:
+                    del_lis.append(item)
+            for item in del_lis:
+                del self.off_dic[item]        
+                    
 
         
                 
