@@ -5,10 +5,12 @@ int main(){
 	z=x+y;
 	x=11;
 	x=x+y;
-	if(x>=10){
-	m=x+x*y+1;
-	}else{
-	m=x-x/y+10;
+	while(x<0){
+		if(x>=100){
+		m=x+x*y+1;
+		}else{
+		m=x-x/y+10;
+		}
 	}
 	return 0;
 }

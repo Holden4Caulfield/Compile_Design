@@ -19,6 +19,7 @@ class Target_fun():
         pass     
 
     def dic_clear(self):
+        self.Temp_count=int(0)
         self.off_add=int(0)         #偏移地址
         self.off_dic=dict()         #偏移量建立键值对关系
         self.id_list=list()         #标识符，存偏移地址
@@ -44,6 +45,12 @@ class Target_fun():
         if op == '-':
             for item in self.off_dic.keys():
                 self.off_dic[item]=self.off_dic[item]-num
+                """ if self.off_dic[item] <= 0:
+                    del self.off_dic[item] """
+
+        
+                
+
        
 
 
@@ -63,22 +70,31 @@ class Target_fun():
         
         load_name=''
         out_put_block=[]
-
         logic_op='none'
+        sub_tag=0
         for line in lis_block:
             if self.block_name !='':
+                out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                self.control('-',self.Temp_count)
+                self.Temp_count=0
                 load_name=self.block_name
                 if 'ie' in load_name:
                     #没有else情况下,补充else
+                    out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                    self.control('-',self.Temp_count)
+                    self.Temp_count=0
                     if self.jm_status[self.rea_dic[load_name]] != 'done':
                         self.jm_status[self.rea_dic[load_name]] = 'done'
                         print(self.rea_dic[self.rea_dic[load_name]][-1]+':')
                       
                     pass
-                print(self.block_name+':')
+                out_put_block.append(self.block_name+':')
                 if 'we' in load_name:
                     #print(self.jm_status)
                     #while end 要转移到while开始位置
+                    out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                    self.control('-',self.Temp_count)
+                    self.Temp_count=0
                     if self.jm_status[self.rea_dic[load_name]]=='begin':
                         out_put_block.append('      JMP  '+self.rea_dic[load_name])
                         #out_put_block.append('6666')
@@ -89,7 +105,7 @@ class Target_fun():
                 continue
             #简单运算,结果保存，存入[DI]
             if line.opt in ['-','+','*','/','=']:
-                #运算单元肯定已知，不是标识就是常数
+                #运算单元肯定已知，不是标识就是常数,结果肯定是临时变量，不需要存
                 if line.opt in ['-','+','*','/']:
                     if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
                         out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
@@ -111,10 +127,16 @@ class Target_fun():
                             out_put_block.append('          DIV   BX')
                 #要操作的res的偏移地址            
                 off_set=0
+                tag=1
                 if line.res.name in self.off_dic:
                     off_set=self.off_dic[line.res.name]
                 else:
                     self.off_dic[line.res.name]=off_set
+                    self.control('+',2)
+                    tag=0
+                    if isinstance(line.res,TempVar):
+                        self.Temp_count+=2
+
                 if line.opt=='=':
                     #x=a或者x=2
                     #在表中  
@@ -122,18 +144,33 @@ class Target_fun():
                         out_put_block.append('          MOV  DX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
                     else:
                         out_put_block.append('          MOV    DX,'+str(line.item1))
-                out_put_block.append('          MOV     [DI],DX'+str(line.res.name))                              
-                out_put_block.append('          ADD    DI,2')        
-                self.control('+',2)    
+                out_put_block.append('          MOV     [DI],DX'+str(line.res.name))
+                if tag == 0:         
+                    out_put_block.append('          ADD    DI,2') 
+                    tag=1       
+                   
 
             #转移指令 JMP
             if line.opt in ['>=','<=','==','>','<']:
                 logic_op=line.opt
+                if isinstance(line.item1,SymbolItem) or isinstance(line.item1,TempVar):
+                    out_put_block.append('          MOV     AX,[DI-'+str(self.off_dic[line.item1.name])+']'+str(line.item1.name))
+                else:
+                    out_put_block.append('          MOV     AX,'+str(line.item1))    
+                if isinstance(line.item2,SymbolItem)or isinstance(line.item2,TempVar):
+                    out_put_block.append('          MOV     BX,[DI-'+str(self.off_dic[line.item2.name])+']'+str(line.item2.name))
+                else:
+                    out_put_block.append('          MOV     BX,'+str(line.item2))
+
+                out_put_block.append('          CMP     AX,BX')    
                 if 'while' in load_name:
                     '''
                     '''
                     #self.jmp_jud(logic_op,out_put_block,line)
                     #if -else  都有的情况
+                    out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                    self.control('-',self.Temp_count)
+                    self.Temp_count=0
                     if logic_op == '>':
                         out_put_block.append('       JBE  '+self.rea_dic[load_name])
 
@@ -191,6 +228,9 @@ class Target_fun():
                     self.rea_dic['ie'+str(self.if_c)]=name
                     self.block_name=name
                     #if 前必定有判断语句
+                    out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                    self.control('-',self.Temp_count)
+                    self.Temp_count=0
                     if logic_op == '>':
                         out_put_block.append('      JBE  '+self.rea_dic[name][-1])
 
@@ -213,6 +253,9 @@ class Target_fun():
                     if_status='if'+name[4:]
                     self.jm_status[if_status]='done'
                     self.block_name=name
+                    out_put_block.append('          SUB     DI'+str(self.Temp_count))
+                    self.control('-',self.Temp_count)
+                    self.Temp_count=0
                     out_put_block.append('          JMP '+self.rea_dic[self.rea_dic[self.rea_dic[name]]][0])
                 if line.opt == 'ie':
                     
