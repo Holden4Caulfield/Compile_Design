@@ -1,0 +1,172 @@
+STACK SEGMENT STACK
+DB 256 DUP(?)
+STACK ENDS
+
+DSEGM SEGMENT
+DB 1000 DUP(?)
+DSEGM ENDS
+
+CSEGM SEGMENT
+    ASSUME CS:CSEGM, DS:DSEGM, SS:STACK
+PR PROC NEAR
+    MOV [DI],AX
+    MOV DL,AH
+    MOV BL,AH
+    CALL SHOW
+    MOV AX,[DI]
+    MOV DL,AL
+    MOV BL,AL
+    CALL SHOW
+    MOV AH,02H
+    MOV DL,0AH
+    INT 21H
+RET
+PR ENDP
+SHOW PROC NEAR
+    MOV CL,4
+    SHR DL,CL
+    CMP DL,10
+    JAE FUHAO
+    ADD DL,30H
+    MOV AH,02H
+    INT 21H
+    JMP NEXT
+FUHAO:
+    ADD DL,37H
+    MOV AH,02H
+    INT 21H
+NEXT:
+    AND BL,0FH
+    MOV DL,BL
+    CMP BL,10
+    JAE FUHAO2
+    ADD DL,30H
+    MOV AH,02H
+    INT 21H
+    JMP NEXT2
+FUHAO2:
+    ADD DL,37H
+    MOV AH,2
+    INT 21H
+NEXT2:
+    RET
+SHOW ENDP
+PRO:
+    MOV AX,DSEGM
+    MOV DS,AX
+    MOV AX,STACK
+    MOV SS,AX
+    CALL MAIN
+    MOV AH,4CH
+    INT 21H
+fun:
+    PUSH BP
+    MOV BP,SP
+    MOV DX,[BP+4]
+    MOV [DI],DX
+    ADD DI,2
+    MOV DX,0
+    MOV [DI-0],DX
+    ADD DI,2
+    MOV AX,[DI-4]
+    MOV BX,1
+    SUB AX,BX
+    MOV [DI-0],AX
+    ADD DI,2
+    MOV AX,[DI-2]
+    CMP AX,0
+    JE HERE1
+    JMP ELSE1
+HERE1:
+IF1:
+    MOV DX,1
+    MOV [DI-4],DX
+    SUB DI,0
+    JMP IE1
+ELSE1:
+    MOV AX,[DI-6]
+    MOV BX,1
+    SUB AX,BX
+    MOV [DI-0],AX
+    ADD DI,2
+    MOV AX,[DI-2]
+    PUSH AX
+    CALL fun
+    MOV [DI-0],AX
+    ADD DI,2
+    POP DX
+    MOV AX,[DI-2]
+    MOV BX,[DI-10]
+    MUL BX
+    MOV [DI-8],AX
+    SUB DI,4
+IE1:
+    MOV AX,[DI-4]
+    SUB DI,6
+    JMP PE1
+PE1:
+    SUB DI,0
+    POP BP
+    RET
+add:
+    PUSH BP
+    MOV BP,SP
+    MOV DX,[BP+6]
+    MOV [DI],DX
+    ADD DI,2
+    MOV DX,[BP+4]
+    MOV [DI],DX
+    ADD DI,2
+    MOV AX,[DI-4]
+    MOV BX,[DI-2]
+    ADD AX,BX
+    MOV [DI-0],AX
+    ADD DI,2
+    MOV AX,[DI-2]
+    SUB DI,6
+    JMP PE2
+PE2:
+    SUB DI,0
+    POP BP
+    RET
+main:
+    PUSH BP
+    MOV BP,SP
+    MOV DX,4
+    MOV [DI-0],DX
+    ADD DI,2
+    MOV DX,5
+    MOV [DI-0],DX
+    ADD DI,2
+    MOV AX,4
+    PUSH AX
+    CALL fun
+    MOV [DI-0],AX
+    ADD DI,2
+    POP DX
+    MOV AX,[DI-2]
+    PUSH AX
+    MOV AX,5
+    PUSH AX
+    CALL fun
+    MOV [DI-0],AX
+    ADD DI,2
+    POP DX
+    MOV AX,[DI-2]
+    PUSH AX
+    CALL add
+    MOV [DI-0],AX
+    ADD DI,2
+    POP DX
+    POP DX
+    MOV AX,[DI-2]
+    CALL PR
+    MOV AX,0
+    SUB DI,10
+    JMP PE3
+PE3:
+    SUB DI,0
+    POP BP
+    RET
+CSEGM ENDS
+    END PRO

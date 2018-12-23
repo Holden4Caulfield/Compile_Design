@@ -7,6 +7,7 @@ class TempVar(object):  # 临时变量类，t1,t2……
     def __init__(self, name, cat="temp"):
         self.name = name
         self.cat = cat
+        self._type = None
 
     def __str__(self):
         return "%s" % self.name
@@ -65,7 +66,7 @@ class Recursion(object):
         self.midCodeRes = list()  # 存储四元式的栈
         self.count = 1
         self.whether_in_param = 0  # 判断是否进入了参数列表，进入了设为1
-
+        self.param_sem_stack = Stack()
     def getRes(self):
         return self.midCodeRes
 
@@ -130,15 +131,40 @@ class Recursion(object):
             self.SEMStack.push1(self.token_to_word())
         # print(self.SEMStack.len,"in PUSH")
 
+    # def PUSH1(self):
+    #     if(isinstance(self.curToken[1], SymbolItem)):
+    #         self.param_sem_stack.push1(self.curToken[1])
+    #     else:
+    #         self.param_sem_stack.push1(self.token_to_word())
+
     def GEQ1Calculator(self, cal):  # 加减乘除四元式生成
+        # if(self.whether_in_param == 1):
+        #     item1 = self.param_sem_stack.pop1()
+        #     item2 = self.param_sem_stack.pop1()
+        #     result = "t" + str(self.count)
+        #     self.count += 1
+        #     temp_var = TempVar(result)
+        #     quaternion = MiddleCode(cal, item2, item1, temp_var)
+        #     self.midCodeRes.append(quaternion)
+        #     self.param_sem_stack.push1(temp_var)
+        # else:
+        #     item1 = self.SEMStack.pop1()
+        #     item2 = self.SEMStack.pop1()
+        #     result = "t" + str(self.count)
+        #     self.count += 1
+        #     temp_var = TempVar(result)
+        #     quaternion = MiddleCode(cal, item2, item1, temp_var)
+        #     self.midCodeRes.append(quaternion)
+        #     self.SEMStack.push1(temp_var)
         item1 = self.SEMStack.pop1()
         item2 = self.SEMStack.pop1()
         result = "t" + str(self.count)
         self.count += 1
-        tempVar = TempVar(result)
-        quaternion = MiddleCode(cal, item2, item1, tempVar)
+        temp_var = TempVar(result)
+        quaternion = MiddleCode(cal, item2, item1, temp_var)
         self.midCodeRes.append(quaternion)
-        self.SEMStack.push1(tempVar)
+        self.SEMStack.push1(temp_var)
+
 
     def GEQ2Assignment(self, cal):  # = 的四元式生成
         item1 = self.SEMStack.pop1()
@@ -201,6 +227,30 @@ class Recursion(object):
         quaternion = MiddleCode("=", 0, None, item1)
         self.midCodeRes.append(quaternion)
 
+    def geq_transmitted_param(self):  # 被传递的参数四元式生成
+        # ass_param_sem_stack = Stack()
+        # while self.param_sem_stack.size() > 0:
+        #     ass_param_sem_stack.push1(self.param_sem_stack.pop1())
+        # while ass_param_sem_stack.size() > 0:
+        #     param = ass_param_sem_stack.pop1()
+        #     quaternion = MiddleCode("param", param, None, None)
+        #     self.midCodeRes.append(quaternion)
+        #     # while self.param_sem_stack.size() > 0:
+        #     #     param = self.param_sem_stack.pop1()
+        #     #     quaternion = MiddleCode("param", param, None, None)
+        #     #     self.midCodeRes.append(quaternion)
+        item1 = self.SEMStack.pop1()
+        mid_code = MiddleCode("param", item1, None, None)
+        self.midCodeRes.append(mid_code)
+
+    def geq_call_function(self, function):  #
+        result = "t" + str(self.count)
+        self.count += 1
+        temp_var = TempVar(result)
+        quaternion = MiddleCode("call", function, None, temp_var)
+        self.midCodeRes.append(quaternion)
+        self.SEMStack.push1(temp_var)
+
         # 主函数，解析，递归下降
     def parser(self):
         self.get_next_token()
@@ -224,7 +274,6 @@ class Recursion(object):
                 # TODO   PUSH
                 self.PUSH()  #标识符压进SEMStack
 
-                print(self.SEMStack.size())
                 self.get_next_token()
 
                 self.whether_function()
@@ -309,12 +358,22 @@ class Recursion(object):
         #函数
         if self.jud_fun():
             # todo  GEQ(),call a function
-
+            function_name = self.token_to_word()
+            function_obj = self.curToken[1]
             self.get_next_token()
             if (self.token_to_word() == '('):
 
                 self.get_next_token()
-                self.with_or_without_parameters()
+                self.with_or_without_parameters_1()
+                self.geq_call_function(function_obj)
+
+                if (self.token_to_word() == ';'):
+                    self.get_next_token()
+                    self.statement_list()
+
+                else:
+                    self.error()
+
 
                 return
 
@@ -456,22 +515,24 @@ class Recursion(object):
         else:
             return
 
-    # 有无参数
-    def with_or_without_parameters(self):
-        if (self.token_to_word() == ')'):
-            self.get_next_token()
-            self.end_of_statement()
-            return
-        else:
-            self.whether_in_param = 1
-            self.operation_expression()
-            self.variable_list()
-            if (self.token_to_word() == ')'):
-                self.get_next_token()
-                self.end_of_statement()
-                return
-            else:
-                self.error()
+    # # 有无参数
+    # def with_or_without_parameters(self):
+    #     if (self.token_to_word() == ')'):
+    #         self.get_next_token()
+    #         self.end_of_statement()
+    #         return
+    #     else:
+    #         self.whether_in_param = 1
+    #         self.operation_expression()
+    #         self.variable_list()
+    #         if (self.token_to_word() == ')'):
+    #             self.geq_transmitted_param()
+    #             self.whether_in_param = 0
+    #             self.get_next_token()
+    #             self.end_of_statement()
+    #             return
+    #         else:
+    #             self.error()
 
     #语句结尾
     def end_of_statement(self):
@@ -515,6 +576,7 @@ class Recursion(object):
             else:
                 self.error()
         else:
+            self.geq_end_if()
             return
 
     #变量列表
@@ -612,22 +674,34 @@ class Recursion(object):
     def operation_object(self):
         if (self.jud_fun()):
             # TODO  GEQ(call function)
-
+            function_name = self.token_to_word()
+            function_obj = self.curToken[1]
             self.get_next_token()
             if (self.token_to_word() == '('):
                 self.get_next_token()
                 self.with_or_without_parameters_1()
+                self.geq_call_function(function_obj)
                 return
             else:
                 self.error()
         elif (self.jud_nfun()):
             # todo PUSH()
+            # self.PUSH()
+            # if self.whether_in_param == 1:
+            #     self.PUSH1()
+            # else:
+            #     self.PUSH()
             self.PUSH()
             self.get_next_token()
             return
         elif (self.jud_const()):
 
-            #TODO PUSH(I)
+
+            # self.PUSH()
+            # if self.whether_in_param == 1:
+            #     self.PUSH1()
+            # else:
+            #     self.PUSH()
             self.PUSH()
             self.get_next_token()
             return
@@ -640,9 +714,15 @@ class Recursion(object):
             self.get_next_token()
             return
         else:
+            self.whether_in_param = 1
             self.operation_expression()
+
+            self.geq_transmitted_param()
+
             self.with_or_without_parameters_2()
             if self.token_to_word() == ')':
+                # self.geq_transmitted_param()
+                self.whether_in_param = 0
                 self.get_next_token()
                 return
             else:
@@ -652,6 +732,10 @@ class Recursion(object):
         if self.token_to_word() == ',':
             self.get_next_token()
             self.operation_expression()
+
+            self.geq_transmitted_param()
+
+            self.with_or_without_parameters_2()
             return
         else:
             return

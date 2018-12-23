@@ -1,8 +1,25 @@
+# 两文件嵌套调用,将其挪到这
+class ReDefined(Exception):
+    def __init__(self, Char):
+        err = "[*]语义分析异常,当前标识符'{}'重定义".format(Char)
+        super(ReDefined, self).__init__(err)
 
 
 class TmpValue(object):
     def __init__(self):
         self.type = None
+
+
+class ArrList(object):
+    def __init__(self):
+        self.levelLenList = []
+        self.len = 0
+
+    def cal_total_len(self):
+        baseNum = 1
+        for _len in self.levelLenList[::-1]:
+            baseNum *= _len
+        self.len = baseNum
 
 
 class FuncList(object):
@@ -15,25 +32,20 @@ class FuncList(object):
 
 
 class SymbolItem(object):
-    def __init__(self, name, _type, cat, addr):
+    def __init__(self, name, _type=None, cat=None, addr=None):
         self.name = name
         self.type = _type
         self.cat = cat
         self.addr = addr
 
-    # for test
-    def __str__(self):
-        return "%s" % self.name
-
 
 class SymbolList(object):
     offsetDict = {
-        'int': 2,
-        'float': 4,
+        'int': 4,
+        'float': 8,
         'char': 1,
         'bool': 1,
     }
-
     def __init__(self, level):
         self.level = level
         self.offset = level + 3
@@ -42,7 +54,7 @@ class SymbolList(object):
         self.curVarType = None
         self.curVarCat = None
         self.symbolList = []
-        self.nextLevelSL = None
+        self.nextLevelSL = []
 
     def fill_info_and_push_list(self):
         """
@@ -50,7 +62,9 @@ class SymbolList(object):
         """
         self.activeItem.type = self.curVarType
         self.activeItem.cat = self.curVarCat
-        if self.curVarCat != 'f':
+        if self.curVarCat == 'arr':
+            self.activeItem.addr = ArrList()
+        elif self.curVarCat != 'f':
             self.activeItem.addr = (self.level, self.offset)
             self.offset += self.offsetDict[self.curVarType]
         self.symbolList.append(self.activeItem)
@@ -62,6 +76,20 @@ class SymbolListSystem(object):
         self.levelStack = [baseLevelSL]
         self.activeSL = self.levelStack[-1]
 
+    def new_symbol_item(self, symItem):
+        """
+        由于LR方法需要预读一个token,所以如果是在声明语句中,可能返回外层的变量
+        这里生成一个新的变量并修改活动符号项
+        """
+        # 先查重
+        if self.find(symItem.name, 'cur') is not False:
+            raise ReDefined(symItem.name)
+        if symItem.cat is not None:
+            self.activeSL.activeItem = SymbolItem(symItem.name)
+            return self.activeSL.activeItem
+        else:
+            return symItem
+
     def find(self, name, level):
         """
         在指定层级查找符号,level = all or cur
@@ -70,7 +98,7 @@ class SymbolListSystem(object):
         if level == 'cur':
             findStack = [self.activeSL]
         elif level == 'all':
-            findStack = self.levelStack
+            findStack = self.levelStack[::-1]
         else:
             # 报错
             pass
@@ -94,7 +122,7 @@ class SymbolListSystem(object):
 
         else:
         # 其他级,当前活动表指向下一级
-            self.levelStack[-1].nextLevelSL = nextLevelSL
+            self.levelStack[-1].nextLevelSL.append(nextLevelSL)
 
         self.levelStack.append(nextLevelSL)
         self.activeSL = self.levelStack[-1]
@@ -108,4 +136,3 @@ class SymbolListSystem(object):
         for param in self.activeSL.symbolList:
             funlist.paramList.append(param)
             funlist.paramNum += 1
-
